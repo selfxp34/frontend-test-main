@@ -6,8 +6,17 @@
                 <option value="asc">По возрастанию</option>
                 <option value="desc">По убыванию</option>
             </select>
-            <button @click="sortComments('id')">Сортировать по ID</button>
-            <button @click="sortComments('date')">Сортировать по дате</button>
+
+            <span
+                ><br />
+                <button class="comment-sortId" @click="sortComments('id')">
+                    Сортировать по ID
+                </button>
+                <br />
+                <button class="comment-sortDate" @click="sortComments('date')">
+                    Сортировать по дате
+                </button>
+            </span>
             <div v-if="listLoading" class="loading">
                 <img src="/images/spinner.svg" />
             </div>
@@ -26,14 +35,14 @@
                 <div class="comment-author">
                     <strong>Автор комментария:</strong> {{ comment.author }}
                 </div>
-                <div class="comment-author">
+                <div class="comment-date">
                     <strong>Дата комментария:</strong> {{ comment.date }}
                 </div>
                 <div class="comment-content">{{ comment.content }}</div>
                 <button @click="deleteComment(comment.id)">Удалить</button>
             </div>
-            <div>
-                <span v-for="p in pages" :key="p">
+            <div class="page">
+                <span class="page" v-for="p in pages" :key="p">
                     <button
                         @click="changePage(p)"
                         :class="{ active: p === page }"
@@ -46,14 +55,16 @@
         <form @submit.prevent="submitComment" class="comment-form">
             <div class="form-group">
                 <h3>Оставить Комментарий</h3>
-                <label for="name">Имя:</label>
-                <input type="text" id="name" v-model="name" required />
-                <!-- <input type="date" id="date" v-model="date" required /> -->
+                <label class="name-form" for="name">Дата:</label>
                 <date-picker
+                    class="date-picker"
                     v-model="date"
                     valueType="format"
                     aria-required="true"
                 ></date-picker>
+                <br />
+                <label class="name-form" for="name">Имя:</label>
+                <input type="text" id="name" v-model="name" required />
             </div>
             <div class="form-group">
                 <label for="comment">Комментарий:</label>
@@ -73,10 +84,18 @@
 import axios from "axios";
 import DatePicker from "vue2-datepicker";
 import "vue2-datepicker/index.css";
+import "./resources/CommentForm.css";
+import { mapGetters, mapActions } from "vuex";
 
 export default {
     components: {
         DatePicker,
+    },
+    computed: {
+        ...mapGetters(["getterName"]),
+    },
+    methods: {
+        ...mapActions(["actionName"]),
     },
     data() {
         return {
@@ -142,16 +161,8 @@ export default {
                     text,
                 })
                 .then((response) => {
-                    // console.log(response.data);
                     this.loading = false;
                     this.comments[this.comments.length - 1] = response.data;
-                    // if (
-                    //     this.page === this.pages.at(-1) &&
-                    //     (this.comments.length - 1) % this.pages.length < 2
-                    // ) {
-                    //     this.pages.push(this.page + 1);
-                    // }
-                    // Добавляем новый комментарий в список
                 })
                 .catch((error) => {
                     console.error(error);
@@ -174,10 +185,7 @@ export default {
             this.comments.splice(i, 1);
             axios
                 .delete("/comments/" + id, {})
-                .then((response) => {
-                    // let i = this.comments.map((item) => item.id).indexOf(id); // find index of your object
-                    // this.comments.splice(i, 1); // remove it from array
-                })
+                .then((response) => {})
                 .catch((error) => {
                     console.error(error);
                     // Обработка ошибок
@@ -208,103 +216,3 @@ export default {
     },
 };
 </script>
-
-<style>
-.comment-container {
-    display: grid;
-    grid-template-columns: 2fr;
-    grid-gap: 50px;
-}
-
-.active {
-    background-color: red;
-}
-
-.comment-output {
-    background-color: #f9f9f9;
-    padding: 70px;
-    border-radius: 5px;
-}
-
-.comment {
-    margin-bottom: 10px;
-}
-
-button:disabled {
-    background-color: #ccc;
-    cursor: not-allowed;
-}
-
-.comment-author {
-    font-weight: bold;
-}
-
-.comment-content {
-    padding-bottom: 3px;
-}
-
-.comment-form {
-    display: flex;
-    flex-direction: column;
-    align-items: flex-start;
-    margin-left: 70px;
-}
-
-.form-group {
-    margin-bottom: 10px;
-    border-color: #bfbbbb;
-}
-
-label {
-    display: block;
-    font-weight: bold;
-}
-
-input[type="text"],
-textarea {
-    width: 300px;
-    padding: 5px;
-}
-
-button {
-    padding: 10px 20px;
-    background-color: #333;
-    border-radius: 8px;
-    color: #fff;
-    border: none;
-    cursor: pointer;
-    transition: background-color 0.2s ease;
-}
-button:hover {
-    background-color: #bfbbbb;
-}
-
-/* Медиазапрос для адаптации под мобильные устройства */
-@media (max-width: 480px) {
-    .comment-output {
-        padding: 30px;
-    }
-
-    .comment-form {
-        margin-left: 30px;
-    }
-
-    input[type="text"],
-    textarea {
-        width: 100%;
-    }
-}
-
-.comment-container,
-.comment,
-.comment-author,
-.comment-content,
-.comment-form,
-.form-group,
-label,
-input[type="text"],
-textarea,
-button {
-    line-height: 1.5;
-}
-</style>
