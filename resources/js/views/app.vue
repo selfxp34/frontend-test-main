@@ -1,7 +1,6 @@
 <template>
     <div>
         <header-component></header-component>
-        {{ message }}
         <comment-form></comment-form>
     </div>
 </template>
