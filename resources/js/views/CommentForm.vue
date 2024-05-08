@@ -17,7 +17,7 @@
                     Сортировать по дате
                 </button>
             </span>
-            <div v-if="listLoading" class="loading">
+            <div v-if="isLoading" class="loading">
                 <img src="/images/spinner.svg" />
             </div>
             <div
@@ -39,7 +39,7 @@
                     <strong>Дата комментария:</strong> {{ comment.date }}
                 </div>
                 <div class="comment-content">{{ comment.content }}</div>
-                <button @click="deleteComment(comment.id)">Удалить</button>
+                <button @click="deleteCommentLocal(comment.id)">Удалить</button>
             </div>
             <div class="page">
                 <span class="page" v-for="p in pages" :key="p">
@@ -72,7 +72,7 @@
             </div>
             <button
                 type="submit"
-                :disabled="!name || !comment || loading || !date"
+                :disabled="!name || !comment || addCommentPending || !date"
             >
                 Комментировать
             </button>
@@ -81,37 +81,43 @@
 </template>
 
 <script>
+// @ts-check
 import axios from "axios";
 import DatePicker from "vue2-datepicker";
 import "vue2-datepicker/index.css";
 import "./resources/CommentForm.css";
-import { mapGetters, mapActions } from "vuex";
-
+import { mapState, mapActions, mapGetters } from "vuex"; //Импортируем mapGetters и mapActions из "vuex"
 export default {
     components: {
         DatePicker,
     },
     computed: {
-        ...mapGetters(["getterName"]),
-    },
-    methods: {
-        ...mapActions(["actionName"]),
+        ...mapState(["comments", "isLoading", "addCommentPending"]),
+        ...mapGetters(["nextId"]),
     },
     data() {
         return {
             name: "",
             comment: "",
             date: "",
-            comments: [],
-            loading: false,
-            listLoading: false,
+            // comments: [],
+            // loading: false,
+            // listLoading: false,
             page: 1,
             pages: [1],
             sortType: "asc",
         };
     },
     methods: {
+        ...mapActions([
+            "setLoading",
+            "fetchComments",
+            "deleteComment",
+            "addComment",
+            "addCommentOptimistic",
+        ]),
         sortComments(type) {
+            // this.$store.dispatch("actionName", type);
             if (type === "id") {
                 this.comments.sort((a, b) => {
                     if (this.sortType === "asc") {
@@ -133,14 +139,22 @@ export default {
         changePage(p) {
             this.page = p;
         },
+        // Component.submitComment()
         submitComment() {
-            this.comments.push({
+            // this.comments.push({
+            //     author: this.name,
+            //     content: this.comment,
+            //     date: this.date,
+            //     id: this.comments.length
+            //         ? Math.max(...this.comments.map((item) => item.id)) + 1
+            //         : 1,
+            // });
+            const optimisticId = this.nextId;
+            this.addCommentOptimistic({
                 author: this.name,
                 content: this.comment,
                 date: this.date,
-                id: this.comments.length
-                    ? Math.max(...this.comments.map((item) => item.id)) + 1
-                    : 1,
+                id: optimisticId,
             });
             let pageAdded = false;
             if ((this.comments.length - 1) % 3 === 0) {
@@ -153,66 +167,88 @@ export default {
             const date = this.date;
             this.name = "";
             this.comment = "";
-            this.loading = true;
-            axios // XMLHttpRequest
-                .post("/api/comments", {
+            this.addComment({
+                comment: {
                     name,
                     date,
                     text,
-                })
-                .then((response) => {
-                    this.loading = false;
-                    this.comments[this.comments.length - 1] = response.data;
-                })
-                .catch((error) => {
-                    console.error(error);
-                    this.loading = false;
-                    this.comments.pop();
+                },
+                optimisticId,
+                catchCallback: () => {
                     if (pageAdded) {
                         this.pages.pop();
                     }
-                    // Обработка ошибок
-                });
+                },
+            });
+            // this.loading = true;
+            // axios // XMLHttpRequest
+            //     .post("/api/comments", {
+            //         name,
+            //         date,
+            //         text,
+            //     })
+            //     .then((response) => {
+            //         this.loading = false;
+            //         this.comments[this.comments.length - 1] = response.data;
+            //     })
+            //     .catch((error) => {
+            //         console.error(error);
+            //         this.loading = false;
+            //         this.comments.pop();
+            //         if (pageAdded) {
+            //             this.pages.pop();
+            //         }
+            //         // Обработка ошибок
+            //     });
         },
-        deleteComment(id) {
+        deleteCommentLocal(id) {
+            console.log(this.comments);
             if ((this.comments.length - 1) % 3 === 0) {
-                if (this.page === this.pages.at(-1)) {
+                // if (this.page === this.pages.at(-1)) {
+                if (this.page > 1) {
                     this.page -= 1;
                 }
                 this.pages.pop();
             }
-            let i = this.comments.map((item) => item.id).indexOf(id);
-            this.comments.splice(i, 1);
-            axios
-                .delete("/comments/" + id, {})
-                .then((response) => {})
-                .catch((error) => {
-                    console.error(error);
-                    // Обработка ошибок
-                });
+            // this.$store.dispatch("deleteComment", id);
+            this.deleteComment(id);
+            // let i = this.comments.map((item) => item.id).indexOf(id);
+            // this.comments.splice(i, 1);
+            // deleteComment(id)
+            //     .then((response) => {})
+            //     .catch((error) => {
+            //         console.error(error);
+            //         // Обработка ошибок
+            //     });
         },
-        fetchComments() {
-            this.listLoading = true;
-            axios
-                .get("/api/comments")
-                .then((response) => {
-                    // Загружаем комментарии при загрузке компонента
-                    this.comments = response.data;
-                    this.pages = Array.from({
-                        length: Math.ceil(this.comments.length / 3),
-                    }).map((_, i) => i + 1);
-                    this.listLoading = false;
-                })
-                .catch((error) => {
-                    console.error(error);
-                    this.listLoading = false;
-                    // Обработка ошибок
-                });
+        fetchCommentsLocal() {
+            this.fetchComments(() => {
+                this.pages = Array.from({
+                    length: Math.ceil(this.comments.length / 3),
+                }).map((_, i) => i + 1);
+            });
+
+            //     this.listLoading = true;
+            //     axios
+            //         .get("/api/comments")
+            //         .then((response) => {
+            //             // Загружаем комментарии при загрузке компонента
+            //             this.comments = response.data;
+            //             this.pages = Array.from({
+            //                 length: Math.ceil(this.comments.length / 3),
+            //             }).map((_, i) => i + 1);
+            //             this.listLoading = false;
+            //         })
+            //         .catch((error) => {
+            //             console.error(error);
+            //             this.listLoading = false;
+            //             // Обработка ошибок
+            //         });
         },
     },
     created() {
         // Выполняем загрузку комментариев при создании компонента
-        this.fetchComments();
+        this.fetchCommentsLocal();
     },
 };
 </script>
